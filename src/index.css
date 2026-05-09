@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-bg text-text font-sans antialiased;
+    background-image:
+      radial-gradient(at 0% 0%, rgba(59, 111, 224, 0.08) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.06) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+  ::selection {
+    @apply bg-accent/25 text-text;
+  }
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { @apply bg-bg; }
+  ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-text-subtle; }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    @apply bg-bg-subtle rounded-full;
+    height: 6px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 18px;
+    width: 18px;
+    margin-top: -6px;
+    @apply bg-accent rounded-full;
+    box-shadow: 0 0 0 4px rgba(59, 111, 224, 0.18), 0 2px 6px rgba(15, 22, 35, 0.18);
+    transition: transform 0.12s ease;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.12);
+  }
+  input[type="range"]::-moz-range-track {
+    @apply bg-bg-subtle rounded-full;
+    height: 6px;
+  }
+  input[type="range"]::-moz-range-thumb {
+    height: 18px;
+    width: 18px;
+    @apply bg-accent rounded-full border-0;
+    box-shadow: 0 0 0 4px rgba(59, 111, 224, 0.18);
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-bg-surface border border-border-subtle rounded-2xl p-5
+           shadow-[0_1px_2px_rgba(15,22,35,0.04),0_8px_24px_-12px_rgba(15,22,35,0.08)];
+  }
+  .card-elevated {
+    @apply bg-bg-surface border border-border rounded-2xl p-5
+           shadow-[0_2px_4px_rgba(15,22,35,0.06),0_12px_32px_-12px_rgba(15,22,35,0.12)];
+  }
+  .card-title {
+    @apply text-sm font-semibold text-text-muted uppercase tracking-wider mb-4 flex items-center gap-2;
+  }
+  .field-label {
+    @apply text-xs font-medium text-text-muted mb-1.5 flex items-center justify-between gap-2;
+  }
+  .field-value {
+    @apply text-text font-mono text-sm tabular-nums;
+  }
+  .input {
+    @apply w-full bg-white border border-border rounded-lg px-3 py-2 text-sm text-text
+           focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition;
+  }
+  .select {
+    @apply input appearance-none cursor-pointer pr-8;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23525a6b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm
+           transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-accent/40
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-accent hover:bg-accent-hover text-white shadow-[0_2px_8px_-2px_rgba(59,111,224,0.5)];
+  }
+  .btn-secondary {
+    @apply btn bg-white hover:bg-bg-subtle text-text border border-border;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent hover:bg-bg-subtle text-text-muted hover:text-text;
+  }
+  .stat-value {
+    @apply font-mono text-2xl font-semibold text-text tabular-nums;
+  }
+  .stat-label {
+    @apply text-xs text-text-muted uppercase tracking-wider font-medium;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium;
+  }
+  .chip-success { @apply chip bg-success/10 text-success border border-success/25; }
+  .chip-warning { @apply chip bg-warning/10 text-warning border border-warning/25; }
+  .chip-danger  { @apply chip bg-danger/10  text-danger  border border-danger/25; }
+  .chip-info    { @apply chip bg-accent/10  text-accent  border border-accent/25; }
+}

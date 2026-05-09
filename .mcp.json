@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "simulateur-immo": {
+      "command": "npx",
+      "args": ["tsx", "./mcp-server/src/index.ts"]
+    }
+  }
+}

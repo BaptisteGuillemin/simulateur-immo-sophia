@@ -1,0 +1,79 @@
+[
+  {
+    "commune": "Biot",
+    "zone_ptz": "B1",
+    "prix_m2_ancien": 5200,
+    "prix_m2_neuf": 6200,
+    "attractivite": "EXCELLENTE",
+    "distance_sofia_km": 5,
+    "taxe_fonciere_moyenne": 1100,
+    "charges_copro_annuelles_moyennes": 2000,
+    "evolution_5_ans": 18.5
+  },
+  {
+    "commune": "Valbonne",
+    "zone_ptz": "B1",
+    "prix_m2_ancien": 4400,
+    "prix_m2_neuf": 5800,
+    "attractivite": "EXCELLENTE",
+    "distance_sofia_km": 2,
+    "taxe_fonciere_moyenne": 950,
+    "charges_copro_annuelles_moyennes": 1800,
+    "evolution_5_ans": 16.2
+  },
+  {
+    "commune": "Vallauris",
+    "zone_ptz": "B1",
+    "prix_m2_ancien": 4400,
+    "prix_m2_neuf": 5700,
+    "attractivite": "BONNE",
+    "distance_sofia_km": 8,
+    "taxe_fonciere_moyenne": 880,
+    "charges_copro_annuelles_moyennes": 1500,
+    "evolution_5_ans": 12.8
+  },
+  {
+    "commune": "Le Cannet",
+    "zone_ptz": "B1",
+    "prix_m2_ancien": 4000,
+    "prix_m2_neuf": 5200,
+    "attractivite": "BONNE",
+    "distance_sofia_km": 12,
+    "taxe_fonciere_moyenne": 820,
+    "charges_copro_annuelles_moyennes": 1500,
+    "evolution_5_ans": 11.4
+  },
+  {
+    "commune": "Mougins",
+    "zone_ptz": "B1",
+    "prix_m2_ancien": 6200,
+    "prix_m2_neuf": 7500,
+    "attractivite": "EXCELLENTE",
+    "distance_sofia_km": 7,
+    "taxe_fonciere_moyenne": 1350,
+    "charges_copro_annuelles_moyennes": 2400,
+    "evolution_5_ans": 19.1
+  },
+  {
+    "commune": "Antibes",
+    "zone_ptz": "B1",
+    "prix_m2_ancien": 5200,
+    "prix_m2_neuf": 7000,
+    "attractivite": "EXCELLENTE",
+    "distance_sofia_km": 10,
+    "taxe_fonciere_moyenne": 1050,
+    "charges_copro_annuelles_moyennes": 2000,
+    "evolution_5_ans": 17.6
+  },
+  {
+    "commune": "Villeneuve-Loubet",
+    "zone_ptz": "B1",
+    "prix_m2_ancien": 6000,
+    "prix_m2_neuf": 7500,
+    "attractivite": "EXCELLENTE",
+    "distance_sofia_km": 13,
+    "taxe_fonciere_moyenne": 1200,
+    "charges_copro_annuelles_moyennes": 2200,
+    "evolution_5_ans": 20.3
+  }
+]
