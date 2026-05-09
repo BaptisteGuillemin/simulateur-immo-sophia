@@ -19,7 +19,7 @@ export function ScenariosManager() {
   return (
     <div className="card animate-slide-up">
       <h3 className="card-title">
-        <Bookmark className="w-4 h-4 text-accent" />
+        <Bookmark className="w-4 h-4 text-accent" aria-hidden="true" />
         Mes scénarios
       </h3>
 
@@ -31,8 +31,9 @@ export function ScenariosManager() {
           onChange={(e) => setNom(e.target.value)}
           placeholder="Ex : Biot 40m² PTZ 70k"
           onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+          aria-label="Nom du scénario à sauvegarder"
         />
-        <button className="btn-primary" onClick={handleSave}>
+        <button type="button" className="btn-primary" onClick={handleSave}>
           Sauvegarder
         </button>
       </div>
@@ -55,18 +56,22 @@ export function ScenariosManager() {
                 </div>
               </div>
               <button
+                type="button"
                 className="btn-ghost px-2"
                 onClick={() => loadScenario(sc.id)}
                 title="Charger ce scénario"
+                aria-label={`Charger le scénario ${sc.nom}`}
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-4 h-4" aria-hidden="true" />
               </button>
               <button
+                type="button"
                 className="btn-ghost px-2 hover:text-danger"
                 onClick={() => deleteScenario(sc.id)}
                 title="Supprimer"
+                aria-label={`Supprimer le scénario ${sc.nom}`}
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-4 h-4" aria-hidden="true" />
               </button>
             </li>
           ))}

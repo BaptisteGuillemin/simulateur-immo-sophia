@@ -21,18 +21,32 @@ export function ExportBar() {
     }
   };
 
+  const handleJson = () => exportJSON(data);
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <button className="btn-secondary" onClick={handlePdf} disabled={isExportingPdf}>
-        <FileDown className="w-4 h-4" />
+      <button
+        type="button"
+        className="btn-secondary"
+        onClick={handlePdf}
+        disabled={isExportingPdf}
+        aria-busy={isExportingPdf}
+      >
+        <FileDown className="w-4 h-4" aria-hidden="true" />
         {isExportingPdf ? 'Export…' : 'Export PDF'}
       </button>
-      <button className="btn-secondary" onClick={() => exportJSON(data)}>
-        <FileJson className="w-4 h-4" />
+      <button type="button" className="btn-secondary" onClick={handleJson}>
+        <FileJson className="w-4 h-4" aria-hidden="true" />
         Export JSON
       </button>
-      <button className="btn-ghost" onClick={reset} title="Réinitialiser tous les paramètres">
-        <RotateCcw className="w-4 h-4" />
+      <button
+        type="button"
+        className="btn-ghost"
+        onClick={reset}
+        title="Réinitialiser tous les paramètres"
+        aria-label="Réinitialiser tous les paramètres"
+      >
+        <RotateCcw className="w-4 h-4" aria-hidden="true" />
         Reset
       </button>
     </div>

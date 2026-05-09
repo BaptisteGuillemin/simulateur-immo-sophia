@@ -14,6 +14,7 @@ const DUREES = [10, 15, 20, 25] as const;
 const formatTaux = (v: number) => `${v.toFixed(2)} %`;
 const formatTauxAnnuel = (v: number) => `${v.toFixed(2)} % / an`;
 const formatAns = (v: number) => `${v} ans`;
+const formatPourcentBrs = (v: number) => `${v} %`;
 
 export function SectionPret() {
   const utilisateur = useSimulationStore((s) => s.utilisateur);
@@ -47,13 +48,7 @@ export function SectionPret() {
   );
 
   return (
-    <div className="card animate-slide-up">
-      <h3 className="card-title">
-        <Banknote className="w-4 h-4 text-accent" />
-        Le prêt
-      </h3>
-
-      <div className="space-y-5">
+    <div className="space-y-5">
         {/* Toggle Primo-accédant + popover info */}
         <div className="p-3 rounded-lg bg-accent/5 border border-accent/30">
           <div className="flex items-center justify-between gap-2 mb-1">
@@ -143,7 +138,7 @@ export function SectionPret() {
             <span>Durée du prêt</span>
             <span className="field-value text-accent">{pret.duree_annees} ans</span>
           </div>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-2" role="group" aria-label="Durée du prêt">
             {DUREES.map((d) => {
               const isActive = pret.duree_annees === d;
               return (
@@ -151,7 +146,10 @@ export function SectionPret() {
                   key={d}
                   type="button"
                   onClick={() => setDuree(d)}
+                  aria-pressed={isActive}
+                  aria-label={`Durée ${d} ans, taux indicatif ${TAUX_INDICATIFS[d]}%`}
                   className={`px-3 py-2 rounded-lg text-sm font-medium border transition-all
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40
                     ${
                       isActive
                         ? 'bg-accent text-white border-accent shadow-[0_2px_8px_-2px_rgba(59,111,224,0.5)]'
@@ -245,10 +243,11 @@ export function SectionPret() {
 
         {/* AIDES CUMULABLES */}
         {utilisateur.primo_accedant && <AidesPanel />}
-      </div>
     </div>
   );
 }
+
+export const SectionPretIcon = Banknote;
 
 // ---- Sous-composant : Aides cumulables (PAS / PEL / CEL / Action Logement / BRS) ----
 function AidesPanel() {
@@ -383,7 +382,7 @@ function AidesPanel() {
               min={20}
               max={55}
               step={5}
-              format={(v) => `${v} %`}
+              format={formatPourcentBrs}
             />
           </div>
         )}

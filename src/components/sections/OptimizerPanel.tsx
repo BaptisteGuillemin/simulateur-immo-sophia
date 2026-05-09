@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Sparkles, Wand2 } from 'lucide-react';
 import { useSimulationStore, getCommune } from '@/store/useSimulationStore';
 import { trouverScenarioOptimal, type CritereOptimisation, type ScenarioOptimal } from '@/calculators/optimizer';
@@ -24,6 +24,9 @@ export function OptimizerPanel() {
   const [mensualiteCible, setMensualiteCible] = useState(800);
   const [resultat, setResultat] = useState<ScenarioOptimal | null>(null);
 
+  const onCritere = useCallback((v: string) => setCritere(v as CritereOptimisation), []);
+  const onMensualiteCible = useCallback((v: number) => setMensualiteCible(v), []);
+
   const optimiser = () => {
     const r = trouverScenarioOptimal(utilisateur, bien, pret, commune, critere, mensualiteCible);
     setResultat(r);
@@ -38,7 +41,7 @@ export function OptimizerPanel() {
   return (
     <div className="card animate-slide-up">
       <h3 className="card-title">
-        <Sparkles className="w-4 h-4 text-accent" />
+        <Sparkles className="w-4 h-4 text-accent" aria-hidden="true" />
         Simulation automatique
       </h3>
 
@@ -46,7 +49,7 @@ export function OptimizerPanel() {
         <Select
           label="Critère d'optimisation"
           value={critere}
-          onChange={(v) => setCritere(v as CritereOptimisation)}
+          onChange={onCritere}
           options={CRITERES}
           tooltip="L'algorithme explore les durées (10/15/20/25 ans) et l'usage du PTZ pour trouver l'optimum."
         />
@@ -55,19 +58,23 @@ export function OptimizerPanel() {
           <NumberField
             label="Mensualité cible"
             value={mensualiteCible}
-            onChange={setMensualiteCible}
+            onChange={onMensualiteCible}
             suffix="€/mois"
             step={50}
           />
         )}
 
-        <button className="btn-primary w-full" onClick={optimiser}>
-          <Wand2 className="w-4 h-4" />
+        <button type="button" className="btn-primary w-full" onClick={optimiser}>
+          <Wand2 className="w-4 h-4" aria-hidden="true" />
           Trouver le scénario optimal
         </button>
 
         {resultat && (
-          <div className="p-3 rounded-lg bg-accent/10 border border-accent/30 space-y-2 animate-fade-in">
+          <div
+            role="status"
+            aria-live="polite"
+            className="p-3 rounded-lg bg-accent/10 border border-accent/30 space-y-2 animate-fade-in"
+          >
             <div className="text-sm font-medium text-text">{resultat.description}</div>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="text-text-subtle">Mensualité</div>
@@ -79,7 +86,7 @@ export function OptimizerPanel() {
               <div className="text-text-subtle">Endettement</div>
               <div className="text-right font-mono">{formatPercent(resultat.resultats.taux_endettement)}</div>
             </div>
-            <button className="btn-secondary w-full mt-2" onClick={appliquer}>
+            <button type="button" className="btn-secondary w-full mt-2" onClick={appliquer}>
               Appliquer ce scénario
             </button>
           </div>

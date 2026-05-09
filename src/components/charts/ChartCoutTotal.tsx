@@ -134,9 +134,25 @@ export function ChartCoutTotal() {
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <div className="text-center mt-3">
-        <div className="stat-label">Total</div>
-        <div className="text-3xl font-mono font-bold text-accent tabular-nums">{formatEuro(total)}</div>
+      <div className="mt-3 pt-3 border-t-2 border-accent/20 grid grid-cols-2 gap-3">
+        <div>
+          <div className="text-xs text-text-subtle uppercase tracking-wider">Total à débourser</div>
+          <div className="text-3xl font-mono font-bold text-accent tabular-nums leading-tight">
+            {formatEuro(total)}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-xs text-text-subtle uppercase tracking-wider">Surcoût vs prix bien</div>
+          <div className="text-base font-mono font-semibold text-warning tabular-nums">
+            +{formatEuro(total - resultats.prix_bien)}
+          </div>
+          <div className="text-xs font-medium text-warning">
+            +{resultats.prix_bien > 0
+              ? (((total - resultats.prix_bien) / resultats.prix_bien) * 100).toFixed(1)
+              : '0'}{' '}
+            %
+          </div>
+        </div>
       </div>
     </div>
   );

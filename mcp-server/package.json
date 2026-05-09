@@ -1,7 +1,20 @@
 {
   "name": "simulateur-immo-mcp",
   "version": "1.0.0",
-  "description": "MCP server for the Sophia Antipolis real estate simulator",
+  "description": "Serveur MCP stdio qui expose le moteur de simulation immobilière Sophia Antipolis (mensualités, paliers HCSF, PTZ, aides primo-accédant, comparaison communes) à Claude Desktop / Claude Code.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "claude-desktop",
+    "claude-code",
+    "immobilier",
+    "simulateur",
+    "sophia-antipolis",
+    "primo-accedant",
+    "ptz",
+    "hcsf"
+  ],
   "type": "module",
   "private": true,
   "bin": {
@@ -12,7 +25,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "inspector": "npx @modelcontextprotocol/inspector tsx src/index.ts"
+    "inspector": "npx @modelcontextprotocol/inspector tsx src/index.ts",
+    "smoke": "printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"smoke\",\"version\":\"0\"}}}' '{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}' '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}' | tsx src/index.ts 2>/dev/null | head -3"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.0",

@@ -53,7 +53,7 @@ function moisAuLabelCourt(start: number, end: number): string {
   return `${sa === 0 ? 0 : sa}–${ea}a`;
 }
 
-function paliersToBarData(paliers: PalierMensualite[], picNumero: number): BarRow[] {
+function paliersToBarData(paliers: readonly PalierMensualite[], picNumero: number): BarRow[] {
   return paliers.map((p) => {
     const row: BarRow = {
       label: `Palier ${p.numero}`,

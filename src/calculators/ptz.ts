@@ -1,27 +1,43 @@
 import { PTZ_PARAMS } from './constants';
-import type { ZonePTZ } from '@/types';
+import type { TypeBien, ZonePTZ } from '@/types';
 
 /**
- * Éligibilité PTZ simplifiée :
- *  - Réservé au neuf en zones tendues (A, Abis, B1) post-réforme 2024.
- *  - Ancien éligible uniquement en zones B2/C avec travaux (non couvert ici).
+ * Zones PTZ considérées comme "tendues" — éligibles au PTZ neuf post-réforme 2024.
  */
-export function estEligiblePTZ(typeBien: 'neuf' | 'ancien', zone: ZonePTZ): boolean {
-  if (typeBien === 'neuf') {
-    return zone === 'A' || zone === 'Abis' || zone === 'B1';
-  }
-  return false;
+const ZONES_PTZ_NEUF_ELIGIBLES: readonly ZonePTZ[] = ['A', 'Abis', 'B1'] as const;
+
+/**
+ * Éligibilité PTZ simplifiée pour un primo-accédant.
+ *
+ * Règles appliquées :
+ *  - Réservé au neuf en zones tendues (A, Abis, B1) post-réforme 2024.
+ *  - L'ancien éligible uniquement en zones B2/C avec travaux ≥ 25 % — non couvert ici.
+ *
+ * @param typeBien Type de bien (`'neuf'` | `'ancien'`).
+ * @param zone     Zone PTZ de la commune.
+ * @returns `true` si le bien peut bénéficier d'un PTZ.
+ */
+export function estEligiblePTZ(typeBien: TypeBien, zone: ZonePTZ): boolean {
+  if (typeBien !== 'neuf') return false;
+  return ZONES_PTZ_NEUF_ELIGIBLES.includes(zone);
 }
 
 /**
- * Calcul du montant PTZ maximal théorique :
- *  - Plafond d'opération selon zone
- *  - Quotité de financement (40 % par défaut, dépend tranche revenus dans le vrai barème)
+ * Calcul du montant PTZ maximal théorique.
+ *
+ * Formule : `PTZ_max = min(prix_opération, plafond_zone) × quotité`.
+ *
+ * @param prixOperation  Prix total de l'opération (€).
+ * @param zone           Zone PTZ (A, Abis, B1, B2, C).
+ * @param typeBien       Type de bien (`'neuf'` | `'ancien'`).
+ * @param quotite        Quotité de financement (par défaut `PTZ_PARAMS.quotite_max`).
+ *                       Le vrai barème dépend de la tranche de revenus.
+ * @returns Montant PTZ maximal arrondi à l'euro ; 0 si non éligible.
  */
 export function calculPTZMax(
   prixOperation: number,
   zone: ZonePTZ,
-  typeBien: 'neuf' | 'ancien',
+  typeBien: TypeBien,
   quotite: number = PTZ_PARAMS.quotite_max
 ): number {
   if (!estEligiblePTZ(typeBien, zone)) return 0;

@@ -4,6 +4,11 @@ import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import type { ParametresUtilisateur, ParametresBien, ParametresPret } from './core.js';
 
+/**
+ * Représentation d'un scénario persistant sur disque. Indépendant du
+ * localStorage de l'app web — la persistance MCP vit dans le HOME de
+ * l'utilisateur et survit aux mises à jour du serveur.
+ */
 export interface StoredScenario {
   id: string;
   name: string;
@@ -62,24 +67,35 @@ function writeStore(store: Store): void {
 
 // Public API ---------------------------------------------------------------
 
+/** Liste tous les scénarios persistés (lecture du fichier JSON). */
 export function listScenarios(): StoredScenario[] {
   return readStore().scenarios;
 }
 
+/** Récupère un scénario par son UUID exact. `undefined` si absent. */
 export function getScenarioById(id: string): StoredScenario | undefined {
   return readStore().scenarios.find((s) => s.id === id);
 }
 
+/**
+ * Récupère un scénario par son nom (insensible à la casse, espaces ignorés).
+ * `undefined` si absent.
+ */
 export function getScenarioByName(name: string): StoredScenario | undefined {
   const normalized = name.trim().toLowerCase();
   return readStore().scenarios.find((s) => s.name.trim().toLowerCase() === normalized);
 }
 
+/**
+ * Recherche un scénario par UUID OU par nom. Pratique pour les tools
+ * qui acceptent les deux formes d'identifiant côté MCP.
+ */
 export function findScenario(idOrName: string): StoredScenario | undefined {
   return getScenarioById(idOrName) ?? getScenarioByName(idOrName);
 }
 
-interface SaveInput {
+/** Payload accepté par `saveScenario` (les paramètres sont déjà résolus). */
+export interface SaveInput {
   name: string;
   notes?: string;
   utilisateur: ParametresUtilisateur;
@@ -87,9 +103,17 @@ interface SaveInput {
   pret: ParametresPret;
 }
 
+/**
+ * Sauvegarde (UPSERT par nom, insensible à la casse). Si un scénario
+ * portant le même nom existe déjà, on conserve son `id` et `created_at`
+ * et on met à jour le reste. Sinon, génère un nouvel UUID v4.
+ *
+ * @throws {Error} Si le nom est vide ou ne contient que des espaces.
+ * @returns Le scénario tel que stocké (avec id + timestamps).
+ */
 export function saveScenario(input: SaveInput): StoredScenario {
   if (!input.name?.trim()) {
-    throw new Error('Le nom du scénario est requis.');
+    throw new Error('Le nom du scénario est requis et ne peut pas être vide.');
   }
   const store = readStore();
   const now = new Date().toISOString();
@@ -117,6 +141,10 @@ export function saveScenario(input: SaveInput): StoredScenario {
   return scenario;
 }
 
+/**
+ * Supprime un scénario par UUID. Retourne `true` si une ligne a été
+ * supprimée, `false` si l'UUID n'existait pas.
+ */
 export function deleteScenario(id: string): boolean {
   const store = readStore();
   const before = store.scenarios.length;
@@ -126,6 +154,7 @@ export function deleteScenario(id: string): boolean {
   return true;
 }
 
+/** Retourne le chemin absolu du fichier JSON de persistance. */
 export function getStorePath(): string {
   return STORE_PATH;
 }

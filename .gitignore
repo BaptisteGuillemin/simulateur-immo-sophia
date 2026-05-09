@@ -33,6 +33,13 @@ pnpm-debug.log*
 # Misc
 *.local
 .cache/
+coverage/
+
+# OS
+Thumbs.db
+
+# Store local du MCP server (si jamais lié symboliquement dans le repo)
+.simulateur-immo-sophia/
 
 # Claude Code worktrees and local config (keep .mcp.json which is the project-scope config)
 .claude-worktrees/

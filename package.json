@@ -3,12 +3,34 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Simulateur immobilier primo-accédant Sophia Antipolis",
+  "description": "Simulateur immobilier interactif primo-accédant français autour de Sophia Antipolis (PTZ, PEL/CEL, BRS, optimiseur, MCP).",
+  "keywords": [
+    "immobilier",
+    "simulateur",
+    "primo-accedant",
+    "ptz",
+    "sophia-antipolis",
+    "react",
+    "typescript",
+    "mcp"
+  ],
+  "license": "MIT",
+  "author": "Baptiste Guillemin",
+  "homepage": "https://github.com/BaptisteGuillemin/simulateur-immo-sophia",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BaptisteGuillemin/simulateur-immo-sophia.git"
+  },
+  "bugs": {
+    "url": "https://github.com/BaptisteGuillemin/simulateur-immo-sophia/issues"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "dev:mcp": "cd mcp-server && npm run dev",
+    "build:all": "npm run build && cd mcp-server && npm run build"
   },
   "dependencies": {
     "jspdf": "^2.5.2",

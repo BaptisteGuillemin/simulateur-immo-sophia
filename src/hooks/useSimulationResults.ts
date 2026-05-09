@@ -3,12 +3,38 @@ import { useSimulationStore, getCommune } from '@/store/useSimulationStore';
 import { simuler, calculPrixBien } from '@/calculators/simulation';
 import { tableauAmortissement } from '@/calculators/financial';
 import { calculPTZMax } from '@/calculators/ptz';
+import type {
+  AmortissementMois,
+  Commune,
+  ParametresBien,
+  ParametresPret,
+  ParametresUtilisateur,
+  Resultats,
+} from '@/types';
+
+/** Forme retournée par `useSimulationResults` — agrège résultats + paramètres source. */
+export interface SimulationResults {
+  resultats: Resultats;
+  amortissement: AmortissementMois[];
+  commune: Commune;
+  prixBien: number;
+  ptzMax: number;
+  utilisateur: ParametresUtilisateur;
+  bien: ParametresBien;
+  pret: ParametresPret;
+}
 
 /**
  * Hook central : recalcule tous les résultats à chaque changement de paramètre.
- * Mémoïsé sur les triplets (utilisateur, bien, pret).
+ *
+ * Mémoïsé sur les triplets (utilisateur, bien, pret) pour éviter de re-simuler
+ * lorsqu'aucune entrée pertinente ne change. Le `tableauAmortissement` (240+
+ * itérations) est mémoïsé séparément sur (montant, taux, durée) pour ne pas
+ * dépendre des autres champs.
+ *
+ * @returns Résultats consolidés + amortissement + paramètres bruts pour l'UI.
  */
-export function useSimulationResults() {
+export function useSimulationResults(): SimulationResults {
   const utilisateur = useSimulationStore((s) => s.utilisateur);
   const bien = useSimulationStore((s) => s.bien);
   const pret = useSimulationStore((s) => s.pret);
