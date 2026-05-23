@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { Tooltip } from './Tooltip';
 import { useDebouncedSetter } from '@/hooks/useDebouncedSetter';
 
@@ -10,7 +10,8 @@ interface Props {
   max?: number;
   step?: number;
   suffix?: string;
-  tooltip?: string;
+  /** Texte simple ou contenu JSX (ex: FormulaTip). */
+  tooltip?: ReactNode;
 }
 
 function NumberFieldImpl({ label, value, onChange, min, max, step = 1, suffix, tooltip }: Props) {

@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
-import { Building2, Github } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Building2, GitCompare, Github } from 'lucide-react';
 import { CollapsibleCard } from '@/components/ui/CollapsibleCard';
 import {
   SectionUtilisateur,
@@ -65,6 +66,14 @@ export function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              to="/compare/neuf-vs-ancien"
+              className="btn-secondary"
+              title="Ouvre le comparateur (Cmd/Ctrl + clic pour un nouvel onglet)"
+            >
+              <GitCompare className="w-4 h-4" aria-hidden="true" />
+              Comparer Neuf vs Ancien
+            </Link>
             <ExportBar />
             <a
               href="https://github.com"
