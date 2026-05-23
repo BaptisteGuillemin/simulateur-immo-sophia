@@ -17,7 +17,9 @@ export default {
         text: {
           DEFAULT: '#0f1623',
           muted: '#525a6b',
-          subtle: '#8a92a3',
+          // #5f6878 : ratio ~5.4:1 sur fond blanc, ~4.8:1 sur bg-subtle — passe WCAG AA (4.5:1).
+          // Ancien #8a92a3 ne donnait que ~3:1, sous le seuil pour le body text.
+          subtle: '#5f6878',
         },
         accent: {
           DEFAULT: '#3b6fe0',
