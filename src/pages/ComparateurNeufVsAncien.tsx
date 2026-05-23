@@ -15,7 +15,7 @@ import {
 import { useSimulationStore, getCommune, getCommunes } from '@/store/useSimulationStore';
 import { simuler, suggererPrixBien } from '@/calculators/simulation';
 import { estEligiblePTZ } from '@/calculators/ptz';
-import { AIDES_DEFAULTS, MOIS_PAR_AN, TAUX_INDICATIFS } from '@/calculators/constants';
+import { MOIS_PAR_AN, TAUX_INDICATIFS } from '@/calculators/constants';
 import { formatEuro, formatPercent } from '@/utils/format';
 import { Toggle } from '@/components/ui/Toggle';
 import { NumberField } from '@/components/ui/NumberField';
@@ -37,30 +37,62 @@ const COMMUNES_OPTIONS = getCommunes().map((c) => ({
   label: `${c.commune} · ${c.distance_sofia_km} km Sophia`,
 }));
 
-interface AidesNeuf {
-  ptz: boolean;
+interface AidesScenario {
+  ptz: boolean; // ignoré sur ancien (PTZ acquisition non éligible B1)
   pas: boolean;
   pel: boolean;
   cel: boolean;
   action_logement: boolean;
 }
-interface AidesAncien {
-  pas: boolean;
-  pel: boolean;
-  cel: boolean;
-  action_logement: boolean;
+
+interface AidesAncienExtra {
   eco_ptz: boolean;
 }
 
 /**
- * Construit un trio (utilisateur, bien, pret) prêt pour `simuler()`, à partir
- * des paramètres partagés du comparateur et du type de scénario.
+ * Paramètres SHARED entre les deux colonnes (mirror du dashboard).
+ * Tout ce qui n'est pas spécifique au type de bien est ici.
+ * Les MONTANTS des aides (PEL, CEL, AL...) sont aussi sharées : si tu modifies
+ * le PEL dans le dashboard à 25 k€ au lieu de 30 k€, le comparateur l'utilisera.
+ */
+interface SharedParams {
+  // Profil utilisateur
+  salaire: number;
+  apport: number;
+  primo_accedant: boolean;
+  // Bien (hors prix et type)
+  commune: string;
+  surface: number;
+  frais_agence_actif: boolean;
+  frais_agence_pourcent: number;
+  // Prêt
+  duree: number;
+  taux_annuel: number;
+  taux_assurance_annuel: number;
+  // PTZ
+  ptz_duree_differe_annees: number;
+  ptz_duree_remboursement_annees: number;
+  // Aides (montants)
+  pel_montant: number;
+  pel_taux: number;
+  pel_duree_annees: number;
+  cel_montant: number;
+  cel_taux: number;
+  cel_duree_annees: number;
+  action_logement_montant: number;
+  action_logement_taux: number;
+  action_logement_duree_annees: number;
+}
+
+/**
+ * Construit un trio (utilisateur, bien, pret) prêt pour `simuler()`.
+ * Reprend tous les paramètres SHARED, applique le prix + aides spécifiques au scénario.
  */
 function buildScenarioInputs(
   shared: SharedParams,
   type_bien: TypeBien,
   prix_bien: number,
-  aides: AidesNeuf | AidesAncien
+  aides: AidesScenario
 ): { utilisateur: ParametresUtilisateur; bien: ParametresBien; pret: ParametresPret } {
   const utilisateur: ParametresUtilisateur = {
     salaire_net_mensuel: shared.salaire,
@@ -74,8 +106,8 @@ function buildScenarioInputs(
     surface: shared.surface,
     prix_bien,
     type_bien,
-    frais_agence_actif: false,
-    frais_agence_pourcent: 4,
+    frais_agence_actif: shared.frais_agence_actif,
+    frais_agence_pourcent: shared.frais_agence_pourcent,
     loyer_mensuel_potentiel: 0, // hors scope comparateur
     assurance_habitation_annuelle: 280,
     fonds_travaux_annuel: 0,
@@ -83,42 +115,35 @@ function buildScenarioInputs(
     charges_copro_perso_annuelles: 1800,
   };
 
-  const ptzActif = type_bien === 'neuf' && (aides as AidesNeuf).ptz;
+  // PTZ acquisition uniquement éligible sur neuf
+  const ptzActif = type_bien === 'neuf' && aides.ptz;
+
   const pret: ParametresPret = {
     duree_annees: shared.duree,
-    taux_annuel: TAUX_INDICATIFS[shared.duree] ?? 2.8,
-    taux_assurance_annuel: 0.0025,
+    taux_annuel: shared.taux_annuel,
+    taux_assurance_annuel: shared.taux_assurance_annuel,
     ptz_actif: ptzActif,
     ptz_montant: undefined,
-    ptz_duree_differe_annees: 8,
-    ptz_duree_remboursement_annees: 22,
+    ptz_duree_differe_annees: shared.ptz_duree_differe_annees,
+    ptz_duree_remboursement_annees: shared.ptz_duree_remboursement_annees,
     pas_actif: aides.pas,
     pel_actif: aides.pel,
-    pel_montant: AIDES_DEFAULTS.pel.montant_default,
-    pel_taux: AIDES_DEFAULTS.pel.taux_default,
-    pel_duree_annees: AIDES_DEFAULTS.pel.duree_annees,
+    pel_montant: shared.pel_montant,
+    pel_taux: shared.pel_taux,
+    pel_duree_annees: shared.pel_duree_annees,
     cel_actif: aides.cel,
-    cel_montant: AIDES_DEFAULTS.cel.montant_default,
-    cel_taux: AIDES_DEFAULTS.cel.taux_default,
-    cel_duree_annees: AIDES_DEFAULTS.cel.duree_annees,
+    cel_montant: shared.cel_montant,
+    cel_taux: shared.cel_taux,
+    cel_duree_annees: shared.cel_duree_annees,
     action_logement_actif: aides.action_logement,
-    action_logement_montant: AIDES_DEFAULTS.action_logement.montant_default,
-    action_logement_taux: AIDES_DEFAULTS.action_logement.taux_default,
-    action_logement_duree_annees: AIDES_DEFAULTS.action_logement.duree_annees,
+    action_logement_montant: shared.action_logement_montant,
+    action_logement_taux: shared.action_logement_taux,
+    action_logement_duree_annees: shared.action_logement_duree_annees,
     brs_actif: false,
     brs_decote_pourcent: 35,
   };
 
   return { utilisateur, bien, pret };
-}
-
-interface SharedParams {
-  commune: string;
-  surface: number;
-  duree: number;
-  salaire: number;
-  apport: number;
-  primo_accedant: boolean;
 }
 
 /**
@@ -143,9 +168,7 @@ function computeBlocTravaux(
   const travauxNet = Math.max(0, travauxBrut - subventions);
   if (ecoPtzActif && travauxNet > 0) {
     const capital = Math.min(travauxNet, ECO_PTZ_PLAFOND);
-    // Eco-PTZ à 0 % → mensualité linéaire
     const mensualite = capital / (ECO_PTZ_DUREE_ANS * MOIS_PAR_AN);
-    // Si le travaux dépasse le plafond Eco-PTZ, l'excédent est financé via le prêt principal
     const excedent = Math.max(0, travauxNet - capital);
     return {
       travaux_net: travauxNet,
@@ -168,57 +191,104 @@ function computeBlocTravaux(
 
 export function ComparateurNeufVsAncien() {
   // -----------------------------------------------------------------------
-  // Initialisation depuis le store principal (préremplissage)
+  // Initialisation depuis le store principal — MIRROR de la simulation actuelle
   // -----------------------------------------------------------------------
   const mainBien = useSimulationStore((s) => s.bien);
   const mainUtilisateur = useSimulationStore((s) => s.utilisateur);
   const mainPret = useSimulationStore((s) => s.pret);
 
-  const [commune, setCommune] = useState(mainBien.commune);
-  const [surface, setSurface] = useState(mainBien.surface);
-  const [duree, setDuree] = useState(mainPret.duree_annees);
-  const [salaire, setSalaire] = useState(mainUtilisateur.salaire_net_mensuel);
-  const [apport, setApport] = useState(mainUtilisateur.apport);
-  const [primoAccedant, setPrimoAccedant] = useState(mainUtilisateur.primo_accedant);
+  const isMainNeuf = mainBien.type_bien === 'neuf';
+  const initialCommune = getCommune(mainBien.commune);
 
-  // Resolved commune
-  const communeObj = useMemo(() => getCommune(commune), [commune]);
+  // SHARED params (synced from main store at mount)
+  const [shared, setShared] = useState<SharedParams>(() => ({
+    salaire: mainUtilisateur.salaire_net_mensuel,
+    apport: mainUtilisateur.apport,
+    primo_accedant: mainUtilisateur.primo_accedant,
+    commune: mainBien.commune,
+    surface: mainBien.surface,
+    frais_agence_actif: mainBien.frais_agence_actif,
+    frais_agence_pourcent: mainBien.frais_agence_pourcent,
+    duree: mainPret.duree_annees,
+    taux_annuel: mainPret.taux_annuel,
+    taux_assurance_annuel: mainPret.taux_assurance_annuel,
+    ptz_duree_differe_annees: mainPret.ptz_duree_differe_annees,
+    ptz_duree_remboursement_annees: mainPret.ptz_duree_remboursement_annees,
+    pel_montant: mainPret.pel_montant,
+    pel_taux: mainPret.pel_taux,
+    pel_duree_annees: mainPret.pel_duree_annees,
+    cel_montant: mainPret.cel_montant,
+    cel_taux: mainPret.cel_taux,
+    cel_duree_annees: mainPret.cel_duree_annees,
+    action_logement_montant: mainPret.action_logement_montant,
+    action_logement_taux: mainPret.action_logement_taux,
+    action_logement_duree_annees: mainPret.action_logement_duree_annees,
+  }));
+
+  const updateShared = (patch: Partial<SharedParams>) => setShared((s) => ({ ...s, ...patch }));
+
+  const communeObj = useMemo(() => getCommune(shared.commune), [shared.commune]);
 
   // -----------------------------------------------------------------------
-  // Scénario NEUF
+  // NEUF : si dashboard est sur neuf → mirror, sinon → market default
   // -----------------------------------------------------------------------
-  const [prixNeuf, setPrixNeuf] = useState(() => suggererPrixBien(mainBien.surface, 'neuf', communeObj));
-  const [aidesNeuf, setAidesNeuf] = useState<AidesNeuf>({
-    ptz: true,
-    pas: false,
-    pel: false,
-    cel: false,
-    action_logement: false,
-  });
+  const [prixNeuf, setPrixNeuf] = useState(() =>
+    isMainNeuf ? mainBien.prix_bien : suggererPrixBien(mainBien.surface, 'neuf', initialCommune)
+  );
+  const [aidesNeuf, setAidesNeuf] = useState<AidesScenario>(() =>
+    isMainNeuf
+      ? {
+          ptz: mainPret.ptz_actif,
+          pas: mainPret.pas_actif,
+          pel: mainPret.pel_actif,
+          cel: mainPret.cel_actif,
+          action_logement: mainPret.action_logement_actif,
+        }
+      : {
+          ptz: true,
+          pas: false,
+          pel: false,
+          cel: false,
+          action_logement: false,
+        }
+  );
 
   // -----------------------------------------------------------------------
-  // Scénario ANCIEN
+  // ANCIEN : si dashboard est sur ancien → mirror, sinon → market default
   // -----------------------------------------------------------------------
-  const [prixAncien, setPrixAncien] = useState(() => suggererPrixBien(mainBien.surface, 'ancien', communeObj));
-  const [aidesAncien, setAidesAncien] = useState<AidesAncien>({
-    pas: false,
-    pel: false,
-    cel: false,
-    action_logement: false,
-    eco_ptz: true,
-  });
-  const [travauxBrut, setTravauxBrut] = useState(15_000);
-  const [subventions, setSubventions] = useState(5_000);
+  const [prixAncien, setPrixAncien] = useState(() =>
+    !isMainNeuf ? mainBien.prix_bien : suggererPrixBien(mainBien.surface, 'ancien', initialCommune)
+  );
+  const [aidesAncien, setAidesAncien] = useState<AidesScenario & AidesAncienExtra>(() =>
+    !isMainNeuf
+      ? {
+          ptz: false, // jamais sur ancien en B1
+          pas: mainPret.pas_actif,
+          pel: mainPret.pel_actif,
+          cel: mainPret.cel_actif,
+          action_logement: mainPret.action_logement_actif,
+          eco_ptz: false, // pas dans le dashboard
+        }
+      : {
+          ptz: false,
+          pas: false,
+          pel: false,
+          cel: false,
+          action_logement: false,
+          eco_ptz: true,
+        }
+  );
+  const [travauxBrut, setTravauxBrut] = useState(0);
+  const [subventions, setSubventions] = useState(0);
 
-  // Boutons "Recaler sur la moyenne" : re-suggère le prix selon la commune/surface
-  const handleResetPrixNeuf = () => setPrixNeuf(suggererPrixBien(surface, 'neuf', communeObj));
-  const handleResetPrixAncien = () => setPrixAncien(suggererPrixBien(surface, 'ancien', communeObj));
+  // Reset prix sur moyenne marché
+  const handleResetPrixNeuf = () => setPrixNeuf(suggererPrixBien(shared.surface, 'neuf', communeObj));
+  const handleResetPrixAncien = () =>
+    setPrixAncien(suggererPrixBien(shared.surface, 'ancien', communeObj));
 
   // -----------------------------------------------------------------------
   // Calculs
   // -----------------------------------------------------------------------
-  const shared: SharedParams = { commune, surface, duree, salaire, apport, primo_accedant: primoAccedant };
-
   const resNeuf = useMemo(() => {
     const { utilisateur, bien, pret } = buildScenarioInputs(shared, 'neuf', prixNeuf, aidesNeuf);
     return simuler(utilisateur, bien, pret, communeObj);
@@ -237,26 +307,30 @@ export function ComparateurNeufVsAncien() {
       aidesAncien
     );
     const r = simuler(utilisateur, bien, pret, communeObj);
-    // On ajoute l'Eco-PTZ par-dessus (capital + mensualité + coût total)
+    // Ajout de l'Eco-PTZ par-dessus (capital + mensualité + coût total)
     return {
       ...r,
-      // Surcharge pour intégrer Eco-PTZ
       mensualite_totale: r.mensualite_totale + blocTravaux.eco_ptz_mensualite,
       cout_total_reel: r.cout_total_reel + blocTravaux.eco_ptz_cout_total,
       pic_mensualite_palier: r.pic_mensualite_palier + blocTravaux.eco_ptz_mensualite,
       taux_endettement:
-        salaire > 0
-          ? ((r.pic_mensualite_palier + blocTravaux.eco_ptz_mensualite) / salaire) * 100
+        shared.salaire > 0
+          ? ((r.pic_mensualite_palier + blocTravaux.eco_ptz_mensualite) / shared.salaire) * 100
           : 0,
     };
-  }, [shared, blocTravaux, aidesAncien, communeObj, salaire]);
+  }, [shared, blocTravaux, aidesAncien, communeObj]);
 
   // -----------------------------------------------------------------------
-  // Éligibilité PTZ neuf en temps réel
+  // Éligibilité PTZ
   // -----------------------------------------------------------------------
-  const ptzEligibleNeuf = primoAccedant && estEligiblePTZ('neuf', communeObj.zone_ptz);
-  const ptzEligibleAncien = primoAccedant && estEligiblePTZ('ancien', communeObj.zone_ptz); // toujours false en B1
+  const ptzEligibleNeuf = shared.primo_accedant && estEligiblePTZ('neuf', communeObj.zone_ptz);
+  const ptzEligibleAncien = shared.primo_accedant && estEligiblePTZ('ancien', communeObj.zone_ptz);
   const ecoPtzMontantMax = Math.min(Math.max(0, travauxBrut - subventions), ECO_PTZ_PLAFOND);
+
+  // Bandeau "mirror du dashboard"
+  const mirrorBadge = isMainNeuf
+    ? 'Colonne NEUF = ta simulation actuelle · colonne ANCIEN recalculée'
+    : 'Colonne ANCIEN = ta simulation actuelle · colonne NEUF recalculée';
 
   return (
     <div className="min-h-screen pb-12 overflow-x-hidden">
@@ -299,6 +373,15 @@ export function ComparateurNeufVsAncien() {
       </header>
 
       <main id="main-content" className="max-w-[1600px] mx-auto px-6 py-6 space-y-5">
+        {/* BANDEAU MIRROR */}
+        <div className="p-3 rounded-xl border border-accent/30 bg-accent/5 text-xs text-text-muted flex items-center gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-accent shrink-0" aria-hidden="true" />
+          <span>
+            <strong className="text-text">{mirrorBadge}.</strong> Tu peux ajuster tous les champs
+            ci-dessous — les calculs sont locaux au comparateur, ils ne modifient pas ton dashboard.
+          </span>
+        </div>
+
         {/* PARAMÈTRES PARTAGÉS */}
         <section className="card">
           <h2 className="card-title">
@@ -308,28 +391,28 @@ export function ComparateurNeufVsAncien() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <Select
               label="Commune"
-              value={commune}
-              onChange={setCommune}
+              value={shared.commune}
+              onChange={(v) => updateShared({ commune: v })}
               options={COMMUNES_OPTIONS}
             />
             <NumberField
               label="Surface"
-              value={surface}
-              onChange={(v) => setSurface(Math.max(1, v))}
+              value={shared.surface}
+              onChange={(v) => updateShared({ surface: Math.max(1, v) })}
               suffix="m²"
               step={1}
             />
             <NumberField
               label="Salaire net"
-              value={salaire}
-              onChange={(v) => setSalaire(Math.max(0, v))}
+              value={shared.salaire}
+              onChange={(v) => updateShared({ salaire: Math.max(0, v) })}
               suffix="€/mois"
               step={50}
             />
             <NumberField
               label="Apport"
-              value={apport}
-              onChange={(v) => setApport(Math.max(0, v))}
+              value={shared.apport}
+              onChange={(v) => updateShared({ apport: Math.max(0, v) })}
               suffix="€"
               step={1000}
             />
@@ -337,12 +420,17 @@ export function ComparateurNeufVsAncien() {
               <div className="text-xs font-medium text-text-muted mb-1.5">Durée prêt</div>
               <div className="grid grid-cols-4 gap-1" role="group" aria-label="Durée du prêt">
                 {DUREES.map((d) => {
-                  const isActive = duree === d;
+                  const isActive = shared.duree === d;
                   return (
                     <button
                       key={d}
                       type="button"
-                      onClick={() => setDuree(d)}
+                      onClick={() =>
+                        updateShared({
+                          duree: d,
+                          taux_annuel: TAUX_INDICATIFS[d] ?? shared.taux_annuel,
+                        })
+                      }
                       aria-pressed={isActive}
                       className={`px-1.5 py-1.5 rounded text-xs font-medium border transition ${
                         isActive
@@ -359,8 +447,8 @@ export function ComparateurNeufVsAncien() {
             <div className="flex items-end pb-1">
               <Toggle
                 label="Primo-accédant"
-                value={primoAccedant}
-                onChange={setPrimoAccedant}
+                value={shared.primo_accedant}
+                onChange={(v) => updateShared({ primo_accedant: v })}
               />
             </div>
           </div>
@@ -369,11 +457,18 @@ export function ComparateurNeufVsAncien() {
         {/* DEUX COLONNES NEUF / ANCIEN */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* ============ NEUF ============ */}
-          <section className="card border-2 border-accent/30">
-            <h2 className="card-title">
-              <Sparkles className="w-4 h-4 text-accent" aria-hidden="true" />
-              🏢 Neuf
-            </h2>
+          <section
+            className={`card border-2 ${isMainNeuf ? 'border-accent ring-2 ring-accent/20' : 'border-accent/30'}`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="card-title !mb-0">
+                <Sparkles className="w-4 h-4 text-accent" aria-hidden="true" />
+                🏢 Neuf
+              </h2>
+              {isMainNeuf && (
+                <span className="chip-info text-[10px]">= ta simulation</span>
+              )}
+            </div>
 
             <NumberField
               label="Prix du bien (FAI)"
@@ -381,7 +476,7 @@ export function ComparateurNeufVsAncien() {
               onChange={(v) => setPrixNeuf(Math.max(0, v))}
               suffix="€"
               step={1000}
-              tooltip={`Prix moyen ${communeObj.commune} neuf : ${formatEuro(communeObj.prix_m2_neuf)}/m² × ${surface} m² = ${formatEuro(suggererPrixBien(surface, 'neuf', communeObj))}`}
+              tooltip={`Prix moyen ${communeObj.commune} neuf : ${formatEuro(communeObj.prix_m2_neuf)}/m² × ${shared.surface} m² = ${formatEuro(suggererPrixBien(shared.surface, 'neuf', communeObj))}`}
             />
             <button
               type="button"
@@ -409,19 +504,19 @@ export function ComparateurNeufVsAncien() {
                 onChange={(v) => setAidesNeuf({ ...aidesNeuf, pas: v })}
               />
               <AideRow
-                label="PEL (capital 30k @ 2,2 %)"
+                label={`PEL (${formatEuro(shared.pel_montant)} @ ${shared.pel_taux} %)`}
                 eligible
                 value={aidesNeuf.pel}
                 onChange={(v) => setAidesNeuf({ ...aidesNeuf, pel: v })}
               />
               <AideRow
-                label="CEL (capital 12k @ 2,0 %)"
+                label={`CEL (${formatEuro(shared.cel_montant)} @ ${shared.cel_taux} %)`}
                 eligible
                 value={aidesNeuf.cel}
                 onChange={(v) => setAidesNeuf({ ...aidesNeuf, cel: v })}
               />
               <AideRow
-                label="Action Logement (30k @ 1,5 %)"
+                label={`Action Logement (${formatEuro(shared.action_logement_montant)} @ ${shared.action_logement_taux} %)`}
                 eligible
                 value={aidesNeuf.action_logement}
                 onChange={(v) => setAidesNeuf({ ...aidesNeuf, action_logement: v })}
@@ -432,11 +527,18 @@ export function ComparateurNeufVsAncien() {
           </section>
 
           {/* ============ ANCIEN ============ */}
-          <section className="card border-2 border-warning/30">
-            <h2 className="card-title">
-              <Wrench className="w-4 h-4 text-warning" aria-hidden="true" />
-              🏠 Ancien
-            </h2>
+          <section
+            className={`card border-2 ${!isMainNeuf ? 'border-warning ring-2 ring-warning/20' : 'border-warning/30'}`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="card-title !mb-0">
+                <Wrench className="w-4 h-4 text-warning" aria-hidden="true" />
+                🏠 Ancien
+              </h2>
+              {!isMainNeuf && (
+                <span className="chip-warning text-[10px]">= ta simulation</span>
+              )}
+            </div>
 
             <NumberField
               label="Prix du bien (FAI)"
@@ -444,7 +546,7 @@ export function ComparateurNeufVsAncien() {
               onChange={(v) => setPrixAncien(Math.max(0, v))}
               suffix="€"
               step={1000}
-              tooltip={`Prix moyen ${communeObj.commune} ancien : ${formatEuro(communeObj.prix_m2_ancien)}/m² × ${surface} m² = ${formatEuro(suggererPrixBien(surface, 'ancien', communeObj))}`}
+              tooltip={`Prix moyen ${communeObj.commune} ancien : ${formatEuro(communeObj.prix_m2_ancien)}/m² × ${shared.surface} m² = ${formatEuro(suggererPrixBien(shared.surface, 'ancien', communeObj))}`}
             />
             <button
               type="button"
@@ -481,7 +583,7 @@ export function ComparateurNeufVsAncien() {
                         { label: "MaPrimeRénov'", value: 'selon revenus + geste' },
                         { label: 'CEE (énergie)', value: '~1-5k€ par geste' },
                         { label: 'TVA 5,5 %', value: 'sur travaux énergétiques' },
-                        { label: 'Action Logement', value: 'jusqu\'à 20k€ ménages modestes' },
+                        { label: 'Action Logement', value: "jusqu'à 20k€ ménages modestes" },
                       ]}
                       footnote="Estimation grossière à affiner avec un conseiller France Rénov'."
                     />
@@ -511,7 +613,11 @@ export function ComparateurNeufVsAncien() {
               <AideRow
                 label={`Eco-PTZ travaux (0 %, 20 ans, plafond ${formatEuro(ECO_PTZ_PLAFOND)})`}
                 eligible={travauxBrut > 0}
-                eligibleReason={travauxBrut > 0 ? `finance ${formatEuro(ecoPtzMontantMax)} à 0 %` : 'aucun travaux saisi'}
+                eligibleReason={
+                  travauxBrut > 0
+                    ? `finance ${formatEuro(ecoPtzMontantMax)} à 0 %`
+                    : 'aucun travaux saisi'
+                }
                 value={aidesAncien.eco_ptz}
                 onChange={(v) => setAidesAncien({ ...aidesAncien, eco_ptz: v })}
               />
@@ -522,19 +628,19 @@ export function ComparateurNeufVsAncien() {
                 onChange={(v) => setAidesAncien({ ...aidesAncien, pas: v })}
               />
               <AideRow
-                label="PEL (capital 30k @ 2,2 %)"
+                label={`PEL (${formatEuro(shared.pel_montant)} @ ${shared.pel_taux} %)`}
                 eligible
                 value={aidesAncien.pel}
                 onChange={(v) => setAidesAncien({ ...aidesAncien, pel: v })}
               />
               <AideRow
-                label="CEL (capital 12k @ 2,0 %)"
+                label={`CEL (${formatEuro(shared.cel_montant)} @ ${shared.cel_taux} %)`}
                 eligible
                 value={aidesAncien.cel}
                 onChange={(v) => setAidesAncien({ ...aidesAncien, cel: v })}
               />
               <AideRow
-                label="Action Logement (30k @ 1,5 %)"
+                label={`Action Logement (${formatEuro(shared.action_logement_montant)} @ ${shared.action_logement_taux} %)`}
                 eligible
                 value={aidesAncien.action_logement}
                 onChange={(v) => setAidesAncien({ ...aidesAncien, action_logement: v })}
@@ -556,7 +662,7 @@ export function ComparateurNeufVsAncien() {
         </div>
 
         {/* TABLEAU DELTA */}
-        <DeltaTable resNeuf={resNeuf} resAncien={resAncien} salaire={salaire} />
+        <DeltaTable resNeuf={resNeuf} resAncien={resAncien} salaire={shared.salaire} />
       </main>
     </div>
   );
@@ -636,8 +742,17 @@ function ScenarioResults({ resultats, ecoPtzExtra }: ScenarioResultsProps) {
         />
       )}
       <ResultLine
-        label="Mensualité totale"
+        label="Mensualité pendant différé PTZ"
         value={formatEuro(resultats.mensualite_totale)}
+        hint={
+          resultats.mensualite_ptz > 0
+            ? `${resultats.mensualite_ptz > 0 ? 'puis +' + formatEuro(resultats.mensualite_ptz) + ' PTZ après différé' : ''}`
+            : undefined
+        }
+      />
+      <ResultLine
+        label="Mensualité pic (HCSF)"
+        value={formatEuro(resultats.pic_mensualite_palier)}
         bold
         color="text-accent"
       />
@@ -701,9 +816,9 @@ interface DeltaTableProps {
 function DeltaTable({ resNeuf, resAncien, salaire }: DeltaTableProps) {
   const rows: Array<{ label: string; neuf: number; ancien: number; positiveIsBad: boolean }> = [
     {
-      label: 'Mensualité totale',
-      neuf: resNeuf.mensualite_totale,
-      ancien: resAncien.mensualite_totale,
+      label: 'Mensualité pic (HCSF)',
+      neuf: resNeuf.pic_mensualite_palier,
+      ancien: resAncien.pic_mensualite_palier,
       positiveIsBad: true,
     },
     {
@@ -722,7 +837,7 @@ function DeltaTable({ resNeuf, resAncien, salaire }: DeltaTableProps) {
       label: 'Prêt principal banque',
       neuf: resNeuf.pret_principal_montant,
       ancien: resAncien.pret_principal_montant,
-      positiveIsBad: false, // pas vraiment "mauvais" un prêt plus élevé en soi
+      positiveIsBad: false,
     },
     {
       label: 'Total à débourser',
@@ -841,4 +956,3 @@ function EndettementBadge({
     </div>
   );
 }
-
