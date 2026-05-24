@@ -60,9 +60,8 @@ interface SharedParams {
   salaire: number;
   apport: number;
   primo_accedant: boolean;
-  // Bien (hors prix et type)
+  // Bien (commune partagée mais surface et prix sont per-scenario)
   commune: string;
-  surface: number;
   frais_agence_actif: boolean;
   frais_agence_pourcent: number;
   // Prêt
@@ -91,6 +90,7 @@ interface SharedParams {
 function buildScenarioInputs(
   shared: SharedParams,
   type_bien: TypeBien,
+  surface: number,
   prix_bien: number,
   aides: AidesScenario
 ): { utilisateur: ParametresUtilisateur; bien: ParametresBien; pret: ParametresPret } {
@@ -103,7 +103,7 @@ function buildScenarioInputs(
 
   const bien: ParametresBien = {
     commune: shared.commune,
-    surface: shared.surface,
+    surface,
     prix_bien,
     type_bien,
     frais_agence_actif: shared.frais_agence_actif,
@@ -206,7 +206,6 @@ export function ComparateurNeufVsAncien() {
     apport: mainUtilisateur.apport,
     primo_accedant: mainUtilisateur.primo_accedant,
     commune: mainBien.commune,
-    surface: mainBien.surface,
     frais_agence_actif: mainBien.frais_agence_actif,
     frais_agence_pourcent: mainBien.frais_agence_pourcent,
     duree: mainPret.duree_annees,
@@ -230,8 +229,23 @@ export function ComparateurNeufVsAncien() {
   const communeObj = useMemo(() => getCommune(shared.commune), [shared.commune]);
 
   // -----------------------------------------------------------------------
-  // NEUF : si dashboard est sur neuf → mirror, sinon → market default
+  // Mode de comparaison : "Même surface" (par défaut) ou "Même prix d'achat"
+  // - même surface : on garde 40 m² des 2 côtés, le prix s'ajuste au type
+  // - même prix d'achat : on garde le prix du dashboard, la surface s'ajuste
+  //   au prix m² moyen du type (un ancien sera plus grand pour le même budget)
   // -----------------------------------------------------------------------
+  type ModeComparaison = 'meme_surface' | 'meme_prix';
+  const [mode, setMode] = useState<ModeComparaison>('meme_surface');
+
+  // -----------------------------------------------------------------------
+  // NEUF : si dashboard est sur neuf → mirror, sinon → calculé selon mode
+  // -----------------------------------------------------------------------
+  const [surfaceNeuf, setSurfaceNeuf] = useState(() =>
+    isMainNeuf
+      ? mainBien.surface
+      : // dashboard est ancien → mode "même surface" par défaut → on prend surface ancien
+        mainBien.surface
+  );
   const [prixNeuf, setPrixNeuf] = useState(() =>
     isMainNeuf ? mainBien.prix_bien : suggererPrixBien(mainBien.surface, 'neuf', initialCommune)
   );
@@ -254,8 +268,11 @@ export function ComparateurNeufVsAncien() {
   );
 
   // -----------------------------------------------------------------------
-  // ANCIEN : si dashboard est sur ancien → mirror, sinon → market default
+  // ANCIEN : si dashboard est sur ancien → mirror, sinon → calculé selon mode
   // -----------------------------------------------------------------------
+  const [surfaceAncien, setSurfaceAncien] = useState(() =>
+    !isMainNeuf ? mainBien.surface : mainBien.surface
+  );
   const [prixAncien, setPrixAncien] = useState(() =>
     !isMainNeuf ? mainBien.prix_bien : suggererPrixBien(mainBien.surface, 'ancien', initialCommune)
   );
@@ -281,18 +298,62 @@ export function ComparateurNeufVsAncien() {
   const [travauxBrut, setTravauxBrut] = useState(0);
   const [subventions, setSubventions] = useState(0);
 
-  // Reset prix sur moyenne marché
-  const handleResetPrixNeuf = () => setPrixNeuf(suggererPrixBien(shared.surface, 'neuf', communeObj));
-  const handleResetPrixAncien = () =>
-    setPrixAncien(suggererPrixBien(shared.surface, 'ancien', communeObj));
+  // -----------------------------------------------------------------------
+  // Changement de mode → recompute la colonne NON-mirror selon le mode
+  // - Mirror = colonne du même type que le dashboard, on n'y touche pas
+  // - Non-mirror = on aligne soit la surface, soit le prix sur le mirror
+  // -----------------------------------------------------------------------
+  const handleModeChange = (newMode: ModeComparaison) => {
+    setMode(newMode);
+    if (isMainNeuf) {
+      // Ancien est le non-mirror
+      if (newMode === 'meme_surface') {
+        setSurfaceAncien(mainBien.surface);
+        setPrixAncien(suggererPrixBien(mainBien.surface, 'ancien', communeObj));
+      } else {
+        // même prix d'achat : ancien aurait plus de surface pour le même budget
+        setPrixAncien(mainBien.prix_bien);
+        const prixM2Ancien = communeObj.prix_m2_ancien;
+        if (prixM2Ancien > 0) {
+          setSurfaceAncien(Math.round(mainBien.prix_bien / prixM2Ancien));
+        }
+      }
+    } else {
+      // Neuf est le non-mirror
+      if (newMode === 'meme_surface') {
+        setSurfaceNeuf(mainBien.surface);
+        setPrixNeuf(suggererPrixBien(mainBien.surface, 'neuf', communeObj));
+      } else {
+        setPrixNeuf(mainBien.prix_bien);
+        const prixM2Neuf = communeObj.prix_m2_neuf;
+        if (prixM2Neuf > 0) {
+          setSurfaceNeuf(Math.round(mainBien.prix_bien / prixM2Neuf));
+        }
+      }
+    }
+  };
+
+  // Reset prix sur moyenne marché (uniquement sur la colonne non-mirror, le mirror reste figé)
+  const handleResetPrixNeuf = () => {
+    setPrixNeuf(suggererPrixBien(surfaceNeuf, 'neuf', communeObj));
+  };
+  const handleResetPrixAncien = () => {
+    setPrixAncien(suggererPrixBien(surfaceAncien, 'ancien', communeObj));
+  };
 
   // -----------------------------------------------------------------------
   // Calculs
   // -----------------------------------------------------------------------
   const resNeuf = useMemo(() => {
-    const { utilisateur, bien, pret } = buildScenarioInputs(shared, 'neuf', prixNeuf, aidesNeuf);
+    const { utilisateur, bien, pret } = buildScenarioInputs(
+      shared,
+      'neuf',
+      surfaceNeuf,
+      prixNeuf,
+      aidesNeuf
+    );
     return simuler(utilisateur, bien, pret, communeObj);
-  }, [shared, prixNeuf, aidesNeuf, communeObj]);
+  }, [shared, surfaceNeuf, prixNeuf, aidesNeuf, communeObj]);
 
   const blocTravaux = useMemo(
     () => computeBlocTravaux(prixAncien, travauxBrut, subventions, aidesAncien.eco_ptz),
@@ -303,6 +364,7 @@ export function ComparateurNeufVsAncien() {
     const { utilisateur, bien, pret } = buildScenarioInputs(
       shared,
       'ancien',
+      surfaceAncien,
       blocTravaux.prix_bien_effectif,
       aidesAncien
     );
@@ -318,7 +380,7 @@ export function ComparateurNeufVsAncien() {
           ? ((r.pic_mensualite_palier + blocTravaux.eco_ptz_mensualite) / shared.salaire) * 100
           : 0,
     };
-  }, [shared, blocTravaux, aidesAncien, communeObj]);
+  }, [shared, surfaceAncien, blocTravaux, aidesAncien, communeObj]);
 
   // -----------------------------------------------------------------------
   // Éligibilité PTZ
@@ -388,19 +450,12 @@ export function ComparateurNeufVsAncien() {
             <Building2 className="w-4 h-4 text-accent" aria-hidden="true" />
             Paramètres communs
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             <Select
               label="Commune"
               value={shared.commune}
               onChange={(v) => updateShared({ commune: v })}
               options={COMMUNES_OPTIONS}
-            />
-            <NumberField
-              label="Surface"
-              value={shared.surface}
-              onChange={(v) => updateShared({ surface: Math.max(1, v) })}
-              suffix="m²"
-              step={1}
             />
             <NumberField
               label="Salaire net"
@@ -454,6 +509,32 @@ export function ComparateurNeufVsAncien() {
           </div>
         </section>
 
+        {/* MODE DE COMPARAISON */}
+        <section className="card">
+          <h2 className="card-title">
+            <GitCompare className="w-4 h-4 text-accent" aria-hidden="true" />
+            Mode de comparaison
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <ModeRadio
+              active={mode === 'meme_surface'}
+              onClick={() => handleModeChange('meme_surface')}
+              title="Même surface"
+              description={`On compare la même surface (${isMainNeuf ? mainBien.surface : mainBien.surface} m²). Le prix de l'autre type est recalculé selon le m² moyen.`}
+            />
+            <ModeRadio
+              active={mode === 'meme_prix'}
+              onClick={() => handleModeChange('meme_prix')}
+              title="Même prix d'achat"
+              description={`On compare le même budget (${formatEuro(mainBien.prix_bien)}). La surface de l'autre type est recalculée selon le m² moyen.`}
+            />
+          </div>
+          <p className="text-xs text-text-subtle italic mt-2">
+            Le bouton ré-applique les valeurs sur la colonne non-mirror. Tu peux ensuite ajuster
+            manuellement le prix ou la surface — chaque colonne reste indépendante après ajustement.
+          </p>
+        </section>
+
         {/* DEUX COLONNES NEUF / ANCIEN */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* ============ NEUF ============ */}
@@ -470,21 +551,36 @@ export function ComparateurNeufVsAncien() {
               )}
             </div>
 
-            <NumberField
-              label="Prix du bien (FAI)"
-              value={prixNeuf}
-              onChange={(v) => setPrixNeuf(Math.max(0, v))}
-              suffix="€"
-              step={1000}
-              tooltip={`Prix moyen ${communeObj.commune} neuf : ${formatEuro(communeObj.prix_m2_neuf)}/m² × ${shared.surface} m² = ${formatEuro(suggererPrixBien(shared.surface, 'neuf', communeObj))}`}
-            />
-            <button
-              type="button"
-              onClick={handleResetPrixNeuf}
-              className="btn-ghost text-xs !py-1 mt-1"
-            >
-              Caler sur la moyenne marché neuf
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <NumberField
+                label="Surface"
+                value={surfaceNeuf}
+                onChange={(v) => setSurfaceNeuf(Math.max(1, v))}
+                suffix="m²"
+                step={1}
+              />
+              <NumberField
+                label="Prix du bien (FAI)"
+                value={prixNeuf}
+                onChange={(v) => setPrixNeuf(Math.max(0, v))}
+                suffix="€"
+                step={1000}
+                tooltip={`Prix moyen ${communeObj.commune} neuf : ${formatEuro(communeObj.prix_m2_neuf)}/m² × ${surfaceNeuf} m² = ${formatEuro(suggererPrixBien(surfaceNeuf, 'neuf', communeObj))}`}
+              />
+            </div>
+            <div className="text-xs text-text-subtle mt-1 flex items-center justify-between">
+              <span>
+                Prix m² calculé : {formatEuro(surfaceNeuf > 0 ? Math.round(prixNeuf / surfaceNeuf) : 0)}/m²
+                {' '}· moyenne {formatEuro(communeObj.prix_m2_neuf)}/m²
+              </span>
+              <button
+                type="button"
+                onClick={handleResetPrixNeuf}
+                className="btn-ghost text-xs !py-0.5"
+              >
+                Caler sur moyenne
+              </button>
+            </div>
 
             <div className="mt-4 p-3 rounded-lg bg-accent/5 border border-accent/20 space-y-2">
               <div className="text-xs font-semibold text-text-muted uppercase tracking-wider">
@@ -540,21 +636,36 @@ export function ComparateurNeufVsAncien() {
               )}
             </div>
 
-            <NumberField
-              label="Prix du bien (FAI)"
-              value={prixAncien}
-              onChange={(v) => setPrixAncien(Math.max(0, v))}
-              suffix="€"
-              step={1000}
-              tooltip={`Prix moyen ${communeObj.commune} ancien : ${formatEuro(communeObj.prix_m2_ancien)}/m² × ${shared.surface} m² = ${formatEuro(suggererPrixBien(shared.surface, 'ancien', communeObj))}`}
-            />
-            <button
-              type="button"
-              onClick={handleResetPrixAncien}
-              className="btn-ghost text-xs !py-1 mt-1"
-            >
-              Caler sur la moyenne marché ancien
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <NumberField
+                label="Surface"
+                value={surfaceAncien}
+                onChange={(v) => setSurfaceAncien(Math.max(1, v))}
+                suffix="m²"
+                step={1}
+              />
+              <NumberField
+                label="Prix du bien (FAI)"
+                value={prixAncien}
+                onChange={(v) => setPrixAncien(Math.max(0, v))}
+                suffix="€"
+                step={1000}
+                tooltip={`Prix moyen ${communeObj.commune} ancien : ${formatEuro(communeObj.prix_m2_ancien)}/m² × ${surfaceAncien} m² = ${formatEuro(suggererPrixBien(surfaceAncien, 'ancien', communeObj))}`}
+              />
+            </div>
+            <div className="text-xs text-text-subtle mt-1 flex items-center justify-between">
+              <span>
+                Prix m² calculé : {formatEuro(surfaceAncien > 0 ? Math.round(prixAncien / surfaceAncien) : 0)}/m²
+                {' '}· moyenne {formatEuro(communeObj.prix_m2_ancien)}/m²
+              </span>
+              <button
+                type="button"
+                onClick={handleResetPrixAncien}
+                className="btn-ghost text-xs !py-0.5"
+              >
+                Caler sur moyenne
+              </button>
+            </div>
 
             {/* TRAVAUX */}
             <div className="mt-4 p-3 rounded-lg bg-warning/5 border border-warning/20 space-y-3">
@@ -671,6 +782,42 @@ export function ComparateurNeufVsAncien() {
 // ---------------------------------------------------------------------------
 // Sous-composants
 // ---------------------------------------------------------------------------
+
+interface ModeRadioProps {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  description: string;
+}
+function ModeRadio({ active, onClick, title, description }: ModeRadioProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`text-left p-3 rounded-lg border-2 transition-all
+        ${
+          active
+            ? 'border-accent bg-accent/5 ring-2 ring-accent/20'
+            : 'border-border bg-white hover:border-accent/50'
+        }`}
+    >
+      <div className="flex items-center gap-2 mb-1">
+        <span
+          className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+            active ? 'border-accent' : 'border-border'
+          }`}
+        >
+          {active && <span className="w-1.5 h-1.5 rounded-full bg-accent" />}
+        </span>
+        <span className={`text-sm font-semibold ${active ? 'text-text' : 'text-text-muted'}`}>
+          {title}
+        </span>
+      </div>
+      <div className="text-xs text-text-muted ml-5.5">{description}</div>
+    </button>
+  );
+}
 
 interface AideRowProps {
   label: string;
